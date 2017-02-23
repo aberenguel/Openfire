@@ -463,15 +463,16 @@ public class GroupManager {
      * @return an unmodifiable Collection of all shared groups for the given userName.
      */
     public Collection<Group> getSharedGroups(String userName) {
-        Collection<String> groupNames = (Collection<String>)groupMetaCache.get(userName);
+        String key = SHARED_GROUPS_KEY + userName;
+        Collection<String> groupNames = (Collection<String>)groupMetaCache.get(key);
         if (groupNames == null) {
-            synchronized((SHARED_GROUPS_KEY + userName).intern()) {
-                groupNames = (Collection<String>)groupMetaCache.get(userName);
+            synchronized(key.intern()) {
+                groupNames = (Collection<String>)groupMetaCache.get(key);
                 if (groupNames == null) {
                 	// assume this is a local user
                     groupNames = provider.getSharedGroupNames(new JID(userName, 
                     		XMPPServer.getInstance().getServerInfo().getXMPPDomain(), null));
-                    groupMetaCache.put(userName, groupNames);
+                    groupMetaCache.put(key, groupNames);
                 }
             }
         }
@@ -574,11 +575,11 @@ public class GroupManager {
      * @return all groups that an entity belongs to.
      */
     public Collection<Group> getGroups(JID user) {
-        String key = user.toBareJID();
+        String key = GROUP_NAMES_KEY + user.toBareJID();
 
         Collection<String> groupNames = (Collection<String>)groupMetaCache.get(key);
         if (groupNames == null) {
-            synchronized((GROUP_NAMES_KEY + key).intern()) {
+            synchronized(key.intern()) {
                 groupNames = (Collection<String>)groupMetaCache.get(key);
                 if (groupNames == null) {
                     groupNames = provider.getGroupNames(user);
@@ -704,23 +705,24 @@ public class GroupManager {
             }
         }
     }
-    
+
     private void evictCachedUserForGroup(String user) {
         if(user != null) {
+            JID userJid = new JID(user);
 
             // remove userJID cache
-            synchronized((GROUP_NAMES_KEY + user).intern()) {
-                groupMetaCache.remove(user);
+            String userGroupKey = GROUP_NAMES_KEY + userJid.toBareJID();
+            synchronized(userGroupKey.intern()) {
+                groupMetaCache.remove(userGroupKey);
             }
 
             // remove userNode cache
-            JID userJid = new JID(user);
             if (XMPPServer.getInstance().isLocal(userJid)) {
-                String username = userJid.getNode();
-                synchronized ((SHARED_GROUPS_KEY + username).intern()) {
-                    groupMetaCache.remove(username);
+                String userSharedGroupKey = SHARED_GROUPS_KEY + userJid.getNode();
+                synchronized (userSharedGroupKey.intern()) {
+                    groupMetaCache.remove(userSharedGroupKey);
                 }
             }
-            }
+        }
     }
 }
